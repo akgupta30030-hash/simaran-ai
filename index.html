@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#090b1b">
-<title>SIMARAN AI · Version 1.5</title>
+<title>SIMARAN AI · Version 1.5.1</title>
 <style>
 :root{color-scheme:dark;--muted:#aab0ce}
 *{box-sizing:border-box}
@@ -60,7 +60,37 @@ let recognition=null,listening=false,language='hi-IN',gotResult=false,watchdog=n
 const commandHistory=[];
 function setStatus(label){status.textContent='● '+label}
 function finishListening(message){listening=false;orb.classList.remove('listening');setStatus('READY');if(watchdog){clearTimeout(watchdog);watchdog=null}if(message)state.textContent=message}
-function speak(text){if(!('speechSynthesis'in window)){state.textContent='इस ब्राउज़र में Voice Reply उपलब्ध नहीं है।';return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=/[\u0900-\u097F]/.test(text)?'hi-IN':'en-IN';u.rate=.94;u.pitch=1.12;const voices=speechSynthesis.getVoices(),matching=voices.filter(v=>v.lang.toLowerCase().startsWith(u.lang.slice(0,2)));const female=matching.find(v=>/female|woman|heera|priya|neerja|kalpana|lekha/i.test(v.name));if(female)u.voice=female;else if(matching.length)u.voice=matching[0];u.onstart=()=>{state.textContent='SIMARAN बोल रही है…';setStatus('SPEAKING')};u.onend=()=>{state.textContent='माइक्रोफोन दबाकर बोलें';setStatus('READY')};speechSynthesis.speak(u)}
+let activeUtterance=null;
+function speak(text){
+ if(!('speechSynthesis'in window)||!('SpeechSynthesisUtterance'in window)){
+  state.textContent='इस ब्राउज़र में Voice Reply उपलब्ध नहीं है। Chrome में खोलें।';return;
+ }
+ try{
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(String(text));
+  activeUtterance=u;
+  u.lang=/[\u0900-\u097F]/.test(text)?'hi-IN':'en-IN';
+  u.rate=.94;u.pitch=1.08;u.volume=1;
+  const chooseVoice=()=>{
+   const voices=window.speechSynthesis.getVoices()||[];
+   const matching=voices.filter(v=>v.lang&&v.lang.toLowerCase().startsWith(u.lang.slice(0,2)));
+   const preferred=matching.find(v=>/female|woman|heera|priya|neerja|kalpana|lekha/i.test(v.name));
+   if(preferred)u.voice=preferred;else if(matching.length)u.voice=matching[0];
+  };
+  chooseVoice();
+  u.onstart=()=>{state.textContent='SIMARAN बोल रही है…';setStatus('SPEAKING')};
+  u.onend=()=>{activeUtterance=null;state.textContent='माइक्रोफोन दबाकर बोलें';setStatus('READY')};
+  u.onerror=(event)=>{activeUtterance=null;state.textContent='Voice error: '+(event.error||'unknown')+'। फोन का Media Volume और Text-to-Speech जाँचें।';setStatus('READY')};
+  window.speechSynthesis.speak(u);
+  // Some Android browsers need voices to finish loading before speaking.
+  if(window.speechSynthesis.paused)window.speechSynthesis.resume();
+ }catch(err){
+  state.textContent='Voice Reply शुरू नहीं हो पाया। Chrome में दोबारा खोलें।';setStatus('READY');
+ }
+}
+if('speechSynthesis'in window){
+ window.speechSynthesis.onvoiceschanged=()=>{};
+}
 function say(t){reply.textContent=t;speak(t)}
 function remember(text){commandHistory.unshift(text);commandHistory.splice(5);$('historyList').innerHTML='';if(!commandHistory.length){$('historyList').innerHTML='<li>अभी कोई कमांड नहीं</li>';return}commandHistory.forEach(item=>{const li=document.createElement('li');li.textContent=item;$('historyList').appendChild(li)})}
 // Safe arithmetic parser: supports only numbers, + - * / % and parentheses; never evals code.
@@ -109,7 +139,9 @@ async function automaticSearch(question){
   setStatus('READY');
  }catch(err){
   const google='https://www.google.com/search?q='+encodeURIComponent(question);
-  reply.textContent='मुझे अभी भरोसेमंद Offline जवाब नहीं मिला और Wikipedia से उपयोगी जानकारी भी नहीं मिली। Google पर खोजने के लिए नीचे दिए गए लिंक को खोलें: '+google;
+  const fallback='मुझे अभी Wikipedia से उपयोगी जानकारी नहीं मिली। मैंने आपके सवाल के लिए Google Search लिंक दिखाया है।';
+  reply.textContent=fallback+'\n\nGoogle Search: '+google;
+  speak(fallback);
   state.textContent='Automatic search सीमित रही। Google Search लिंक reply में है।';
   setStatus('READY');
  }
