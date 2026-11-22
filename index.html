@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#090b1b">
-<title>SIMARAN AI · Version 1.4</title>
+<title>SIMARAN AI · Version 1.5</title>
 <style>
 :root{color-scheme:dark;--muted:#aab0ce}
 *{box-sizing:border-box}
@@ -48,11 +48,11 @@ input{flex:1;min-width:0;background:#ffffff0d;border:1px solid #ffffff25;border-
  <div class="controls"><button class="mic" id="mic" aria-label="Start voice input">🎙</button><button class="small" id="stop">Stop voice</button></div>
  <div class="entry"><input id="message" placeholder="हिंदी या English में लिखें…" autocomplete="off"><button class="send" id="send">Send</button></div>
  <div class="quick">
-  <button class="chip" data-command="समय बताओ">🕒 समय</button><button class="chip" data-command="आज की तारीख बताओ">📅 तारीख</button><button class="chip" data-command="गणना 125 * 8">🧮 Calculator</button><button class="chip" data-command="मदद करो">❔ Help</button><button class="chip" data-command="Physics क्या है">⚛️ Physics</button><button class="chip" data-command="Newton का पहला नियम">📘 Newton Law</button><button class="chip" data-command="Ohm का नियम">🔌 Ohm Law</button><button class="chip" data-command="JEE Physics work energy theorem search करो">🌐 JEE Search</button>
+  <button class="chip" data-command="समय बताओ">🕒 समय</button><button class="chip" data-command="आज की तारीख बताओ">📅 तारीख</button><button class="chip" data-command="गणना 125 * 8">🧮 Calculator</button><button class="chip" data-command="मदद करो">❔ Help</button><button class="chip" data-command="Physics क्या है">⚛️ Physics</button><button class="chip" data-command="Newton का पहला नियम">📘 Newton Law</button><button class="chip" data-command="Ohm का नियम">🔌 Ohm Law</button><button class="chip" data-command="JEE Physics work energy theorem">🌐 Auto Search</button>
  </div>
- <div class="note">Hybrid Study Mode: कुछ चुने हुए जवाब Offline मिलेंगे। नए या कठिन सवाल के लिए कहें: “Internet पर खोजो JEE Physics work energy theorem”. SIMARAN Google Search खोलेगी।</div>
+ <div class="note">Automatic Search Mode: पहले Offline जवाब जाँचती है। जवाब न मिले तो Wikipedia पर अपने-आप खोजती है और सारांश बोलती है।</div>
  <div class="history" id="history"><b>हाल की कमांड</b><ul id="historyList"><li>अभी कोई कमांड नहीं</li></ul></div>
- <div class="bottom">SIMARAN AI · Version 1.4 · Free Study Assistant<br>Voice recognition may use an online speech service and needs internet. Online search opens Google in your browser; it does not automatically read or summarize search results. No AI API key is used.</div>
+ <div class="bottom">SIMARAN AI · Version 1.5 · Free Study Assistant<br>Voice recognition may use an online speech service and needs internet. Unknown questions automatically search Wikipedia and read an available summary. This is not a full AI tutor; some topics or JEE solutions may not have a suitable summary. No AI API key is used.</div>
 </main>
 <script>
 const $=id=>document.getElementById(id),orb=$('orb'),state=$('state'),reply=$('reply'),status=$('status');
@@ -87,6 +87,34 @@ function findStudyAnswer(q){
  return item ? item.answer : null;
 }
 
+async function automaticSearch(question){
+ state.textContent='Offline जवाब नहीं मिला। Internet पर खोज रही हूँ…';
+ setStatus('SEARCHING');
+ reply.textContent='SIMARAN जानकारी खोज रही है…';
+ try{
+  const lang=language==='hi-IN'?'hi':'en';
+  const endpoint='https://'+lang+'.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch='+encodeURIComponent(question)+'&gsrlimit=5&gsrnamespace=0&prop=extracts&exintro=1&explaintext=1&format=json&origin=*';
+  const response=await fetch(endpoint,{method:'GET'});
+  if(!response.ok) throw new Error('search failed');
+  const data=await response.json();
+  const pages=data.query&&data.query.pages?Object.values(data.query.pages):[];
+  const page=pages.find(p=>p.extract&&p.extract.trim().length>100);
+  if(!page) throw new Error('no useful result');
+  const clean=page.extract.replace(/\s+/g,' ').trim();
+  const summary=clean.length>900?clean.slice(0,897).replace(/\s+\S*$/,'')+'…':clean;
+  const pageUrl='https://'+lang+'.wikipedia.org/wiki/'+encodeURIComponent(page.title.replace(/ /g,'_'));
+  reply.textContent='Wikipedia: '+page.title+'\n\n'+summary+'\n\nस्रोत: '+pageUrl;
+  speak((language==='hi-IN'?'मुझे यह जानकारी मिली। ':'I found this information. ')+summary);
+  state.textContent='Wikipedia से जानकारी मिली। स्रोत reply में दिया है।';
+  setStatus('READY');
+ }catch(err){
+  const google='https://www.google.com/search?q='+encodeURIComponent(question);
+  reply.textContent='मुझे अभी भरोसेमंद Offline जवाब नहीं मिला और Wikipedia से उपयोगी जानकारी भी नहीं मिली। Google पर खोजने के लिए नीचे दिए गए लिंक को खोलें: '+google;
+  state.textContent='Automatic search सीमित रही। Google Search लिंक reply में है।';
+  setStatus('READY');
+ }
+}
+
 function handle(text){const raw=text.trim();const q=raw.toLowerCase();if(!raw)return;$('message').value='';remember(raw);
  const studyAnswer=findStudyAnswer(q);if(studyAnswer){say(studyAnswer);return;}
  const normalized=raw.replace(/गुणा|multiply|×/gi,'*').replace(/भाग|divide|÷/gi,'/').replace(/प्लस|plus/gi,'+').replace(/माइनस|minus/gi,'-').replace(/कितना है\??/gi,'').trim();
@@ -100,7 +128,7 @@ function handle(text){const raw=text.trim();const q=raw.toLowerCase();if(!raw)re
  if(q.includes('open google')||q.includes('गूगल खोलो')){say('Google खोल रही हूँ।');window.open('https://www.google.com','_blank','noopener');return}
  if(q.includes('wikipedia')||q.includes('विकिपीडिया')){say('Wikipedia खोल रही हूँ।');window.open('https://hi.wikipedia.org','_blank','noopener');return}
  if(q.startsWith('internet पर खोजो ')||q.startsWith('इंटरनेट पर खोजो ')||q.startsWith('search online ')||q.startsWith('search ')||q.startsWith('खोजो ')||q.startsWith('सर्च ')||q.startsWith('search for ')){const term=raw.replace(/^(internet पर खोजो|इंटरनेट पर खोजो|search online|search for|search|खोजो|सर्च)\s*/i,'');if(!term){say('कृपया खोजने के लिए विषय बताइए।');return}say('मैं इंटरनेट पर इस विषय की खोज खोल रही हूँ। परिणामों को पढ़कर सही स्रोत चुनें।');window.open('https://www.google.com/search?q='+encodeURIComponent(term),'_blank','noopener');return}
- say('इस सवाल का Offline जवाब अभी मेरी Study Library में नहीं है। इसे Internet पर खोजने के लिए कहें: Internet पर खोजो और फिर अपना सवाल बताएं।');
+ automaticSearch(raw);
 }
 function chooseLanguage(lang){language=lang;$('hi').classList.toggle('active',lang==='hi-IN');$('en').classList.toggle('active',lang==='en-IN');state.textContent=lang==='hi-IN'?'हिंदी चुनी गई। अब माइक्रोफोन दबाएँ।':'English selected. Tap the microphone.'}
 $('hi').addEventListener('click',()=>chooseLanguage('hi-IN'));$('en').addEventListener('click',()=>chooseLanguage('en-IN'));
