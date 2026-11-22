@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#090b1b">
-<title>SIMARAN AI</title>
+<title>SIMARAN AI · Version 1.2</title>
 <style>
 :root{color-scheme:dark;--muted:#aab0ce}
 *{box-sizing:border-box}
@@ -33,7 +33,7 @@ button{border:0;color:white;font:inherit;cursor:pointer}
 .entry{display:flex;gap:8px;width:100%;margin-top:auto}
 input{flex:1;min-width:0;background:#ffffff0d;border:1px solid #ffffff25;border-radius:16px;padding:14px;color:white;font-size:14px;outline:none}
 .send{background:#7567e9;border-radius:16px;padding:0 18px;font-weight:600}
-.note{margin-top:12px;width:100%;padding:12px;border:1px solid #ffffff18;border-radius:14px;background:#ffffff08;color:#b9bfdc;font-size:12px;line-height:1.6}
+.note{margin-top:12px;width:100%;padding:12px;border:1px solid #ffffff18;border-radius:14px;background:#ffffff08;color:#b9bfdc;font-size:12px;line-height:1.6}.quick{width:100%;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}.chip{border:1px solid #ffffff24;background:#ffffff0c;color:#e7e5ff;border-radius:18px;padding:8px 11px;font-size:12px}.history{width:100%;margin-top:12px;color:#aeb4d3;font-size:12px;line-height:1.7}.history b{color:#e6e2ff}.history ul{margin:5px 0 0;padding-left:18px}.history li{overflow-wrap:anywhere}
 .bottom{color:#858baa;font-size:11px;text-align:center;margin-top:14px;line-height:1.5}
 </style>
 </head>
@@ -47,78 +47,42 @@ input{flex:1;min-width:0;background:#ffffff0d;border:1px solid #ffffff25;border-
  <div class="langs"><button class="lang active" id="hi">हिंदी</button><button class="lang" id="en">English</button></div>
  <div class="controls"><button class="mic" id="mic" aria-label="Start voice input">🎙</button><button class="small" id="stop">Stop voice</button></div>
  <div class="entry"><input id="message" placeholder="हिंदी या English में लिखें…" autocomplete="off"><button class="send" id="send">Send</button></div>
- <div class="note">Try: “समय बताओ”, “आज की तारीख बताओ”, “Open YouTube”, “Open Google”, or “Search JEE Physics”.</div>
- <div class="bottom">SIMARAN AI · Version 1.1 · Free starter prototype<br>Voice recognition may use an online speech service and needs internet.</div>
+ <div class="quick">
+  <button class="chip" data-command="समय बताओ">🕒 समय</button><button class="chip" data-command="आज की तारीख बताओ">📅 तारीख</button><button class="chip" data-command="गणना 125 * 8">🧮 Calculator</button><button class="chip" data-command="मदद करो">❔ Help</button>
+ </div>
+ <div class="note">Try: “125 गुणा 8 कितना है”, “calculate 25 + 17”, “Open YouTube”, “Wikipedia खोलो”, “Search JEE Physics”.</div>
+ <div class="history" id="history"><b>हाल की कमांड</b><ul id="historyList"><li>अभी कोई कमांड नहीं</li></ul></div>
+ <div class="bottom">SIMARAN AI · Version 1.2 · Free command assistant<br>Voice recognition may use an online speech service and needs internet. No AI API key is used.</div>
 </main>
 <script>
 const $=id=>document.getElementById(id),orb=$('orb'),state=$('state'),reply=$('reply'),status=$('status');
 let recognition=null,listening=false,language='hi-IN',gotResult=false,watchdog=null;
+const commandHistory=[];
 function setStatus(label){status.textContent='● '+label}
-function finishListening(message){
- listening=false;orb.classList.remove('listening');setStatus('READY');
- if(watchdog){clearTimeout(watchdog);watchdog=null}
- if(message)state.textContent=message;
-}
-function speak(text){
- if(!('speechSynthesis'in window)){state.textContent='इस ब्राउज़र में Voice Reply उपलब्ध नहीं है।';return}
- speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);
- u.lang=/[\u0900-\u097F]/.test(text)?'hi-IN':'en-IN';u.rate=.94;u.pitch=1.12;
- const voices=speechSynthesis.getVoices(),matching=voices.filter(v=>v.lang.toLowerCase().startsWith(u.lang.slice(0,2)));
- const female=matching.find(v=>/female|woman|heera|priya|neerja|kalpana|lekha/i.test(v.name));
- if(female)u.voice=female;else if(matching.length)u.voice=matching[0];
- u.onstart=()=>{state.textContent='SIMARAN बोल रही है…';setStatus('SPEAKING')};
- u.onend=()=>{state.textContent='माइक्रोफोन दबाकर बोलें';setStatus('READY')};
- speechSynthesis.speak(u);
-}
+function finishListening(message){listening=false;orb.classList.remove('listening');setStatus('READY');if(watchdog){clearTimeout(watchdog);watchdog=null}if(message)state.textContent=message}
+function speak(text){if(!('speechSynthesis'in window)){state.textContent='इस ब्राउज़र में Voice Reply उपलब्ध नहीं है।';return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=/[\u0900-\u097F]/.test(text)?'hi-IN':'en-IN';u.rate=.94;u.pitch=1.12;const voices=speechSynthesis.getVoices(),matching=voices.filter(v=>v.lang.toLowerCase().startsWith(u.lang.slice(0,2)));const female=matching.find(v=>/female|woman|heera|priya|neerja|kalpana|lekha/i.test(v.name));if(female)u.voice=female;else if(matching.length)u.voice=matching[0];u.onstart=()=>{state.textContent='SIMARAN बोल रही है…';setStatus('SPEAKING')};u.onend=()=>{state.textContent='माइक्रोफोन दबाकर बोलें';setStatus('READY')};speechSynthesis.speak(u)}
 function say(t){reply.textContent=t;speak(t)}
-function handle(text){
- const q=text.trim().toLowerCase();if(!q)return;
- $('message').value='';
- if(q.includes('time')||q.includes('समय')||q.includes('टाइम'))say('अभी समय है '+new Date().toLocaleTimeString('hi-IN',{hour:'numeric',minute:'2-digit'})+'।');
- else if(q.includes('date')||q.includes('तारीख')||q.includes('दिन बताओ'))say('आज '+new Date().toLocaleDateString('hi-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' है।');
- else if(q.includes('hello')||q.includes('hi')||q.includes('नमस्ते')||q.includes('हेलो'))say('नमस्ते! मैं SIMARAN हूँ। बताइए, मैं आपकी क्या सहायता कर सकती हूँ?');
- else if(q.includes('open youtube')||q.includes('यूट्यूब खोलो')){say('YouTube खोल रही हूँ।');window.open('https://www.youtube.com','_blank');}
- else if(q.includes('open google')||q.includes('गूगल खोलो')){say('Google खोल रही हूँ।');window.open('https://www.google.com','_blank');}
- else if(q.startsWith('search ')||q.startsWith('खोजो ')||q.startsWith('सर्च ')){const term=text.replace(/^(search|खोजो|सर्च)\s*/i,'');say('मैं इंटरनेट पर खोज रही हूँ।');window.open('https://www.google.com/search?q='+encodeURIComponent(term),'_blank');}
- else say('मैंने आपकी बात सुनी। इस Version में समय, तारीख, Google और YouTube जैसे कमांड उपलब्ध हैं। असली AI बातचीत अगले Version में जोड़ी जाएगी।');
+function remember(text){commandHistory.unshift(text);commandHistory.splice(5);$('historyList').innerHTML='';if(!commandHistory.length){$('historyList').innerHTML='<li>अभी कोई कमांड नहीं</li>';return}commandHistory.forEach(item=>{const li=document.createElement('li');li.textContent=item;$('historyList').appendChild(li)})}
+// Safe arithmetic parser: supports only numbers, + - * / % and parentheses; never evals code.
+function calculate(expression){const tokens=expression.match(/\d+(?:\.\d+)?|[()+\-*/%]/g);if(!tokens||tokens.join('')!==expression.replace(/\s+/g,''))throw Error('invalid');let i=0;function factor(){if(tokens[i]==='+'){i++;return factor()}if(tokens[i]==='-'){i++;return -factor()}if(tokens[i]==='('){i++;const v=expr();if(tokens[i++]!==')')throw Error('paren');return v}const n=Number(tokens[i++]);if(!Number.isFinite(n))throw Error('number');return n}function term(){let v=factor();while(['*','/','%'].includes(tokens[i])){const op=tokens[i++],b=factor();if((op==='/'||op==='%')&&b===0)throw Error('zero');v=op==='*'?v*b:op==='/'?v/b:v%b}return v}function expr(){let v=term();while(tokens[i]==='+'||tokens[i]==='-'){const op=tokens[i++],b=term();v=op==='+'?v+b:v-b}return v}const result=expr();if(i!==tokens.length||!Number.isFinite(result))throw Error('invalid');return Number(result.toFixed(8))}
+function handle(text){const raw=text.trim();const q=raw.toLowerCase();if(!raw)return;$('message').value='';remember(raw);
+ const normalized=raw.replace(/गुणा|multiply|×/gi,'*').replace(/भाग|divide|÷/gi,'/').replace(/प्लस|plus/gi,'+').replace(/माइनस|minus/gi,'-').replace(/कितना है\??/gi,'').trim();
+ const calcMatch=normalized.match(/^(?:(?:calculate|calc|गणना|कैलकुलेट)\s*)?([0-9.()+\-*/%\s]+)$/i);
+ if(calcMatch){try{const result=calculate(calcMatch[1]);say('उत्तर है '+result)}catch(e){say('यह गणना समझ नहीं आई। उदाहरण: calculate 25 + 17')}return}
+ if(/^(help|मदद|मदद करो|क्या कर सकती हो|कमांड बताओ)$/.test(q)){say('आप मुझसे समय और तारीख पूछ सकते हैं, गणना करवा सकते हैं, Google या YouTube खोल सकते हैं और इंटरनेट पर खोज करवा सकते हैं। उदाहरण: calculate 25 + 17।');return}
+ if(q.includes('time')||q.includes('समय')||q.includes('टाइम')){say('अभी समय है '+new Date().toLocaleTimeString(language,{hour:'numeric',minute:'2-digit'})+'।');return}
+ if(q.includes('date')||q.includes('तारीख')||q.includes('दिन बताओ')){say('आज '+new Date().toLocaleDateString(language,{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' है।');return}
+ if(q.includes('hello')||q==='hi'||q.includes('नमस्ते')||q.includes('हेलो')){say('नमस्ते! मैं SIMARAN हूँ। बताइए, मैं आपकी क्या सहायता कर सकती हूँ?');return}
+ if(q.includes('open youtube')||q.includes('यूट्यूब खोलो')){say('YouTube खोल रही हूँ।');window.open('https://www.youtube.com','_blank','noopener');return}
+ if(q.includes('open google')||q.includes('गूगल खोलो')){say('Google खोल रही हूँ।');window.open('https://www.google.com','_blank','noopener');return}
+ if(q.includes('wikipedia')||q.includes('विकिपीडिया')){say('Wikipedia खोल रही हूँ।');window.open('https://hi.wikipedia.org','_blank','noopener');return}
+ if(q.startsWith('search ')||q.startsWith('खोजो ')||q.startsWith('सर्च ')||q.startsWith('search for ')){const term=raw.replace(/^(search for|search|खोजो|सर्च)\s*/i,'');if(!term){say('कृपया खोजने के लिए विषय बताइए।');return}say('मैं इंटरनेट पर खोज रही हूँ।');window.open('https://www.google.com/search?q='+encodeURIComponent(term),'_blank','noopener');return}
+ say('मैंने आपकी बात सुनी, लेकिन यह कमांड अभी उपलब्ध नहीं है। “मदद करो” बोलकर उपलब्ध कमांड सुनें।');
 }
-function chooseLanguage(lang){
- language=lang;$('hi').classList.toggle('active',lang==='hi-IN');$('en').classList.toggle('active',lang==='en-IN');
- state.textContent=lang==='hi-IN'?'हिंदी चुनी गई। अब माइक्रोफोन दबाएँ।':'English selected. Tap the microphone.';
-}
-$('hi').addEventListener('click',()=>chooseLanguage('hi-IN'));
-$('en').addEventListener('click',()=>chooseLanguage('en-IN'));
-function startListening(){
- const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!SR){state.textContent='इस ब्राउज़र में Voice Recognition उपलब्ध नहीं है। Chrome के HTTPS पेज में खोलें।';return}
- if(listening){state.textContent='पहले से सुन रही हूँ…';return}
- try{
-  recognition=new SR();gotResult=false;recognition.lang=language;recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=3;
-  recognition.onstart=()=>{listening=true;orb.classList.add('listening');state.textContent=language==='hi-IN'?'सुन रही हूँ… अब बोलिए':'Listening… Speak now';setStatus('LISTENING');
-   watchdog=setTimeout(()=>{if(listening){try{recognition.stop()}catch(e){}finishListening(gotResult?'आवाज़ मिली।':'आवाज़ नहीं मिली। फिर से प्रयास करें और माइक्रोफोन के पास बोलें।')}},12000);
-  };
-  recognition.onaudiostart=()=>{if(listening)state.textContent='आवाज़ सुन रही हूँ…'};
-  recognition.onspeechstart=()=>{if(listening)state.textContent='बोलना जारी रखें…'};
-  recognition.onresult=e=>{
-   let finalText='',interim='';
-   for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0].transcript;if(e.results[i].isFinal)finalText+=part;else interim+=part}
-   if(interim&&!finalText){reply.textContent='सुना जा रहा है: '+interim;state.textContent='आपकी आवाज़ समझ रही हूँ…'}
-   if(finalText){gotResult=true;reply.textContent='आप: '+finalText;finishListening('आवाज़ पहचान ली गई।');handle(finalText)}
-  };
-  recognition.onerror=e=>{
-   const messages={'no-speech':'कोई आवाज़ नहीं मिली। फिर से बोलकर देखें।','audio-capture':'Microphone उपलब्ध नहीं है।','not-allowed':'Microphone permission नहीं मिली।','network':'Speech service के लिए Internet जाँचें।','service-not-allowed':'Browser की Speech Recognition service उपलब्ध नहीं है।','language-not-supported':'यह भाषा Speech service में उपलब्ध नहीं है।','aborted':'Voice input रोक दिया गया।'};
-   finishListening(messages[e.error]||('Voice error: '+e.error));
-  };
-  recognition.onnomatch=()=>finishListening('बोले गए शब्द समझ नहीं आए। धीरे और साफ बोलें।');
-  recognition.onend=()=>{if(listening)finishListening(gotResult?'आवाज़ पहचान ली गई।':'कोई परिणाम नहीं मिला। फिर से प्रयास करें।')};
-  recognition.start();
- }catch(err){finishListening('Voice शुरू नहीं हो सकी: '+err.message)}
-}
-$('mic').addEventListener('click',startListening);
-$('stop').addEventListener('click',()=>{if(recognition&&listening){try{recognition.abort()}catch(e){}}if('speechSynthesis'in window)speechSynthesis.cancel();finishListening('Voice रोक दी गई।')});
-$('send').addEventListener('click',()=>handle($('message').value));
-$('message').addEventListener('keydown',e=>{if(e.key==='Enter')handle($('message').value)});
-if('speechSynthesis'in window)speechSynthesis.onvoiceschanged=()=>{};
+function chooseLanguage(lang){language=lang;$('hi').classList.toggle('active',lang==='hi-IN');$('en').classList.toggle('active',lang==='en-IN');state.textContent=lang==='hi-IN'?'हिंदी चुनी गई। अब माइक्रोफोन दबाएँ।':'English selected. Tap the microphone.'}
+$('hi').addEventListener('click',()=>chooseLanguage('hi-IN'));$('en').addEventListener('click',()=>chooseLanguage('en-IN'));
+function startListening(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){state.textContent='इस ब्राउज़र में Voice Recognition उपलब्ध नहीं है। Chrome के HTTPS पेज में खोलें।';return}if(listening){state.textContent='पहले से सुन रही हूँ…';return}try{recognition=new SR();gotResult=false;recognition.lang=language;recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=3;recognition.onstart=()=>{listening=true;orb.classList.add('listening');state.textContent=language==='hi-IN'?'सुन रही हूँ… अब बोलिए':'Listening… Speak now';setStatus('LISTENING');watchdog=setTimeout(()=>{if(listening){try{recognition.stop()}catch(e){}finishListening(gotResult?'आवाज़ मिली।':'आवाज़ नहीं मिली। फिर से प्रयास करें।')}},12000)};recognition.onaudiostart=()=>{if(listening)state.textContent='आवाज़ सुन रही हूँ…'};recognition.onspeechstart=()=>{if(listening)state.textContent='बोलना जारी रखें…'};recognition.onresult=e=>{let finalText='',interim='';for(let i=e.resultIndex;i<e.results.length;i++){const part=e.results[i][0].transcript;if(e.results[i].isFinal)finalText+=part;else interim+=part}if(interim&&!finalText){reply.textContent='सुना जा रहा है: '+interim;state.textContent='आपकी आवाज़ समझ रही हूँ…'}if(finalText){gotResult=true;reply.textContent='आप: '+finalText;finishListening('आवाज़ पहचान ली गई।');handle(finalText)}};recognition.onerror=e=>{const messages={'no-speech':'कोई आवाज़ नहीं मिली। फिर से बोलकर देखें।','audio-capture':'Microphone उपलब्ध नहीं है।','not-allowed':'Microphone permission नहीं मिली।','network':'Speech service के लिए Internet जाँचें।','service-not-allowed':'Browser की Speech Recognition service उपलब्ध नहीं है।','language-not-supported':'यह भाषा Speech service में उपलब्ध नहीं है।','aborted':'Voice input रोक दिया गया।'};finishListening(messages[e.error]||('Voice error: '+e.error))};recognition.onnomatch=()=>finishListening('बोले गए शब्द समझ नहीं आए। धीरे और साफ बोलें।');recognition.onend=()=>{if(listening)finishListening(gotResult?'आवाज़ पहचान ली गई।':'कोई परिणाम नहीं मिला। फिर से प्रयास करें।')};recognition.start()}catch(err){finishListening('Voice शुरू नहीं हो सकी: '+err.message)}}
+$('mic').addEventListener('click',startListening);$('stop').addEventListener('click',()=>{if(recognition&&listening){try{recognition.abort()}catch(e){}}if('speechSynthesis'in window)speechSynthesis.cancel();finishListening('Voice रोक दी गई।')});$('send').addEventListener('click',()=>handle($('message').value));$('message').addEventListener('keydown',e=>{if(e.key==='Enter')handle($('message').value)});document.querySelectorAll('[data-command]').forEach(btn=>btn.addEventListener('click',()=>handle(btn.dataset.command)));if('speechSynthesis'in window)speechSynthesis.onvoiceschanged=()=>{};
 </script>
 </body>
 </html>
