@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#090b1b">
-<title>SIMARAN AI · Version 1.2</title>
+<title>SIMARAN AI · Version 1.4</title>
 <style>
 :root{color-scheme:dark;--muted:#aab0ce}
 *{box-sizing:border-box}
@@ -48,11 +48,11 @@ input{flex:1;min-width:0;background:#ffffff0d;border:1px solid #ffffff25;border-
  <div class="controls"><button class="mic" id="mic" aria-label="Start voice input">🎙</button><button class="small" id="stop">Stop voice</button></div>
  <div class="entry"><input id="message" placeholder="हिंदी या English में लिखें…" autocomplete="off"><button class="send" id="send">Send</button></div>
  <div class="quick">
-  <button class="chip" data-command="समय बताओ">🕒 समय</button><button class="chip" data-command="आज की तारीख बताओ">📅 तारीख</button><button class="chip" data-command="गणना 125 * 8">🧮 Calculator</button><button class="chip" data-command="मदद करो">❔ Help</button>
+  <button class="chip" data-command="समय बताओ">🕒 समय</button><button class="chip" data-command="आज की तारीख बताओ">📅 तारीख</button><button class="chip" data-command="गणना 125 * 8">🧮 Calculator</button><button class="chip" data-command="मदद करो">❔ Help</button><button class="chip" data-command="Physics क्या है">⚛️ Physics</button><button class="chip" data-command="Newton का पहला नियम">📘 Newton Law</button><button class="chip" data-command="Ohm का नियम">🔌 Ohm Law</button><button class="chip" data-command="JEE Physics work energy theorem search करो">🌐 JEE Search</button>
  </div>
- <div class="note">Try: “125 गुणा 8 कितना है”, “calculate 25 + 17”, “Open YouTube”, “Wikipedia खोलो”, “Search JEE Physics”.</div>
+ <div class="note">Hybrid Study Mode: कुछ चुने हुए जवाब Offline मिलेंगे। नए या कठिन सवाल के लिए कहें: “Internet पर खोजो JEE Physics work energy theorem”. SIMARAN Google Search खोलेगी।</div>
  <div class="history" id="history"><b>हाल की कमांड</b><ul id="historyList"><li>अभी कोई कमांड नहीं</li></ul></div>
- <div class="bottom">SIMARAN AI · Version 1.2 · Free command assistant<br>Voice recognition may use an online speech service and needs internet. No AI API key is used.</div>
+ <div class="bottom">SIMARAN AI · Version 1.4 · Free Study Assistant<br>Voice recognition may use an online speech service and needs internet. Online search opens Google in your browser; it does not automatically read or summarize search results. No AI API key is used.</div>
 </main>
 <script>
 const $=id=>document.getElementById(id),orb=$('orb'),state=$('state'),reply=$('reply'),status=$('status');
@@ -65,19 +65,42 @@ function say(t){reply.textContent=t;speak(t)}
 function remember(text){commandHistory.unshift(text);commandHistory.splice(5);$('historyList').innerHTML='';if(!commandHistory.length){$('historyList').innerHTML='<li>अभी कोई कमांड नहीं</li>';return}commandHistory.forEach(item=>{const li=document.createElement('li');li.textContent=item;$('historyList').appendChild(li)})}
 // Safe arithmetic parser: supports only numbers, + - * / % and parentheses; never evals code.
 function calculate(expression){const tokens=expression.match(/\d+(?:\.\d+)?|[()+\-*/%]/g);if(!tokens||tokens.join('')!==expression.replace(/\s+/g,''))throw Error('invalid');let i=0;function factor(){if(tokens[i]==='+'){i++;return factor()}if(tokens[i]==='-'){i++;return -factor()}if(tokens[i]==='('){i++;const v=expr();if(tokens[i++]!==')')throw Error('paren');return v}const n=Number(tokens[i++]);if(!Number.isFinite(n))throw Error('number');return n}function term(){let v=factor();while(['*','/','%'].includes(tokens[i])){const op=tokens[i++],b=factor();if((op==='/'||op==='%')&&b===0)throw Error('zero');v=op==='*'?v*b:op==='/'?v/b:v%b}return v}function expr(){let v=term();while(tokens[i]==='+'||tokens[i]==='-'){const op=tokens[i++],b=term();v=op==='+'?v+b:v-b}return v}const result=expr();if(i!==tokens.length||!Number.isFinite(result))throw Error('invalid');return Number(result.toFixed(8))}
+
+const studyAnswers = [
+ {keys:['physics क्या है','भौतिकी क्या है','what is physics'],answer:'Physics यानी भौतिकी, विज्ञान की वह शाखा है जिसमें पदार्थ, ऊर्जा, गति, बल और प्रकृति के नियमों का अध्ययन किया जाता है।'},
+ {keys:['chemistry क्या है','रसायन विज्ञान क्या है','what is chemistry'],answer:'Chemistry यानी रसायन विज्ञान, पदार्थों की संरचना, गुण, संघटन और उनमें होने वाले परिवर्तनों का अध्ययन है।'},
+ {keys:['maths क्या है','गणित क्या है','what is mathematics'],answer:'गणित संख्याओं, मात्राओं, आकृतियों, पैटर्न और उनके संबंधों का व्यवस्थित अध्ययन है।'},
+ {keys:['newton का पहला नियम','न्यूटन का पहला नियम','law of inertia','न्यूटन प्रथम नियम'],answer:'न्यूटन का पहला नियम: कोई वस्तु विराम में है तो विराम में रहेगी, और गति में है तो समान वेग से सीधी रेखा में चलती रहेगी, जब तक उस पर कोई बाहरी असंतुलित बल न लगाया जाए। इसे जड़त्व का नियम कहते हैं।'},
+ {keys:['newton का दूसरा नियम','न्यूटन का दूसरा नियम','न्यूटन द्वितीय नियम'],answer:'न्यूटन का दूसरा नियम कहता है कि संवेग परिवर्तन की दर लगाए गए बाहरी बल के समानुपाती होती है। स्थिर द्रव्यमान के लिए F = m × a।'},
+ {keys:['newton का तीसरा नियम','न्यूटन का तीसरा नियम','न्यूटन तृतीय नियम'],answer:'न्यूटन का तीसरा नियम: प्रत्येक क्रिया के बराबर और विपरीत दिशा में प्रतिक्रिया होती है।'},
+ {keys:['ohm का नियम','ओम का नियम','ohms law'],answer:'ओम का नियम: नियत तापमान पर चालक के सिरों के बीच विभवांतर, उसमें बहने वाली धारा के समानुपाती होता है। सूत्र: V = I × R।'},
+ {keys:['बल का si मात्रक','force का si unit','unit of force'],answer:'बल का SI मात्रक न्यूटन (N) है। एक न्यूटन वह बल है जो 1 kg द्रव्यमान में 1 m/s² का त्वरण उत्पन्न करे।'},
+ {keys:['वेग का si मात्रक','speed का si unit','velocity का si unit'],answer:'वेग का SI मात्रक मीटर प्रति सेकंड (m/s) है।'},
+ {keys:['पानी का रासायनिक सूत्र','water का formula','formula of water'],answer:'पानी का रासायनिक सूत्र H₂O है। इसके एक अणु में दो हाइड्रोजन परमाणु और एक ऑक्सीजन परमाणु होता है।'},
+ {keys:['नमक का रासायनिक सूत्र','common salt formula','formula of salt'],answer:'साधारण खाने के नमक का रासायनिक सूत्र NaCl है।'},
+ {keys:['प्रकाश संश्लेषण क्या है','photosynthesis क्या है','what is photosynthesis'],answer:'प्रकाश संश्लेषण वह प्रक्रिया है जिसमें हरे पौधे सूर्य के प्रकाश की ऊर्जा का उपयोग करके कार्बन डाइऑक्साइड और पानी से ग्लूकोज़ बनाते हैं और ऑक्सीजन छोड़ते हैं।'},
+ {keys:['परमाणु क्या है','atom क्या है','what is atom'],answer:'परमाणु किसी तत्व का सबसे छोटा कण है जो उस तत्व के रासायनिक गुणों को बनाए रखता है।'},
+ {keys:['मोल क्या है','what is mole','mole concept'],answer:'एक मोल में 6.022 × 10²³ मूल कण होते हैं। इस संख्या को एवोगैड्रो स्थिरांक कहते हैं।'}
+];
+function findStudyAnswer(q){
+ const item=studyAnswers.find(entry=>entry.keys.some(k=>q.includes(k)));
+ return item ? item.answer : null;
+}
+
 function handle(text){const raw=text.trim();const q=raw.toLowerCase();if(!raw)return;$('message').value='';remember(raw);
+ const studyAnswer=findStudyAnswer(q);if(studyAnswer){say(studyAnswer);return;}
  const normalized=raw.replace(/गुणा|multiply|×/gi,'*').replace(/भाग|divide|÷/gi,'/').replace(/प्लस|plus/gi,'+').replace(/माइनस|minus/gi,'-').replace(/कितना है\??/gi,'').trim();
  const calcMatch=normalized.match(/^(?:(?:calculate|calc|गणना|कैलकुलेट)\s*)?([0-9.()+\-*/%\s]+)$/i);
  if(calcMatch){try{const result=calculate(calcMatch[1]);say('उत्तर है '+result)}catch(e){say('यह गणना समझ नहीं आई। उदाहरण: calculate 25 + 17')}return}
- if(/^(help|मदद|मदद करो|क्या कर सकती हो|कमांड बताओ)$/.test(q)){say('आप मुझसे समय और तारीख पूछ सकते हैं, गणना करवा सकते हैं, Google या YouTube खोल सकते हैं और इंटरनेट पर खोज करवा सकते हैं। उदाहरण: calculate 25 + 17।');return}
+ if(/^(help|मदद|मदद करो|क्या कर सकती हो|कमांड बताओ)$/.test(q)){say('मैं समय और तारीख बता सकती हूँ, गणना कर सकती हूँ, कुछ Science सवालों के Offline जवाब दे सकती हूँ और नए सवालों के लिए Google Search खोल सकती हूँ। उदाहरण: Internet पर खोजो JEE Physics work energy theorem।');return}
  if(q.includes('time')||q.includes('समय')||q.includes('टाइम')){say('अभी समय है '+new Date().toLocaleTimeString(language,{hour:'numeric',minute:'2-digit'})+'।');return}
  if(q.includes('date')||q.includes('तारीख')||q.includes('दिन बताओ')){say('आज '+new Date().toLocaleDateString(language,{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' है।');return}
  if(q.includes('hello')||q==='hi'||q.includes('नमस्ते')||q.includes('हेलो')){say('नमस्ते! मैं SIMARAN हूँ। बताइए, मैं आपकी क्या सहायता कर सकती हूँ?');return}
  if(q.includes('open youtube')||q.includes('यूट्यूब खोलो')){say('YouTube खोल रही हूँ।');window.open('https://www.youtube.com','_blank','noopener');return}
  if(q.includes('open google')||q.includes('गूगल खोलो')){say('Google खोल रही हूँ।');window.open('https://www.google.com','_blank','noopener');return}
  if(q.includes('wikipedia')||q.includes('विकिपीडिया')){say('Wikipedia खोल रही हूँ।');window.open('https://hi.wikipedia.org','_blank','noopener');return}
- if(q.startsWith('search ')||q.startsWith('खोजो ')||q.startsWith('सर्च ')||q.startsWith('search for ')){const term=raw.replace(/^(search for|search|खोजो|सर्च)\s*/i,'');if(!term){say('कृपया खोजने के लिए विषय बताइए।');return}say('मैं इंटरनेट पर खोज रही हूँ।');window.open('https://www.google.com/search?q='+encodeURIComponent(term),'_blank','noopener');return}
- say('मैंने आपकी बात सुनी, लेकिन यह कमांड अभी उपलब्ध नहीं है। “मदद करो” बोलकर उपलब्ध कमांड सुनें।');
+ if(q.startsWith('internet पर खोजो ')||q.startsWith('इंटरनेट पर खोजो ')||q.startsWith('search online ')||q.startsWith('search ')||q.startsWith('खोजो ')||q.startsWith('सर्च ')||q.startsWith('search for ')){const term=raw.replace(/^(internet पर खोजो|इंटरनेट पर खोजो|search online|search for|search|खोजो|सर्च)\s*/i,'');if(!term){say('कृपया खोजने के लिए विषय बताइए।');return}say('मैं इंटरनेट पर इस विषय की खोज खोल रही हूँ। परिणामों को पढ़कर सही स्रोत चुनें।');window.open('https://www.google.com/search?q='+encodeURIComponent(term),'_blank','noopener');return}
+ say('इस सवाल का Offline जवाब अभी मेरी Study Library में नहीं है। इसे Internet पर खोजने के लिए कहें: Internet पर खोजो और फिर अपना सवाल बताएं।');
 }
 function chooseLanguage(lang){language=lang;$('hi').classList.toggle('active',lang==='hi-IN');$('en').classList.toggle('active',lang==='en-IN');state.textContent=lang==='hi-IN'?'हिंदी चुनी गई। अब माइक्रोफोन दबाएँ।':'English selected. Tap the microphone.'}
 $('hi').addEventListener('click',()=>chooseLanguage('hi-IN'));$('en').addEventListener('click',()=>chooseLanguage('en-IN'));
