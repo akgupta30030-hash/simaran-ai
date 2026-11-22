@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090b1b">
+<title>SIMARAN Voice Diagnostic</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:22px 16px;background:#090b1b;color:#f5f3ff;font:16px system-ui,"Noto Sans Devanagari",sans-serif}
+main{max-width:520px;margin:auto}.panel{background:#171a32;border:1px solid #ffffff20;border-radius:18px;padding:16px;margin:14px 0}
+h1{font-size:25px;margin:8px 0}p{color:#c1c5df;line-height:1.5}.btn{border:0;border-radius:12px;padding:13px 16px;background:#7868e8;color:white;font-size:15px;margin:6px 5px 6px 0}
+.btn.secondary{background:#30334c}.result{padding:12px;border-radius:12px;background:#0d1024;white-space:pre-wrap;overflow-wrap:anywhere;min-height:65px;font-size:14px;line-height:1.6}
+select{padding:10px;background:#252944;color:white;border-radius:10px;border:1px solid #ffffff30}
+.small{font-size:12px;color:#9fa6c8}
+</style>
+</head>
+<body><main>
+<h1>✦ SIMARAN Voice Diagnostic</h1>
+<p>यह छोटा टेस्ट पता करेगा कि Chrome को माइक्रोफोन मिल रहा है या Speech Recognition Service जवाब दे रही है।</p>
+<div class="panel">
+<b>Test 1 — Browser Microphone</b>
+<p>यह केवल फोन के माइक्रोफोन की लोकल जाँच करता है। ऑडियो रिकॉर्ड या अपलोड नहीं करता।</p>
+<button class="btn" id="micTest">Check microphone</button>
+<div class="result" id="micResult">अभी जाँच नहीं हुई।</div>
+</div>
+<div class="panel">
+<b>Test 2 — Speech Recognition</b>
+<p>भाषा चुनकर बटन दबाएँ और छोटा वाक्य बोलें। इस Browser API में आवाज़ पहचानने के लिए ऑडियो किसी ऑनलाइन speech service को भेजा जा सकता है।</p>
+<select id="lang"><option value="hi-IN">हिंदी</option><option value="en-IN">English (India)</option></select>
+<br><button class="btn" id="speechTest">Start speech test</button><button class="btn secondary" id="stop">Stop</button>
+<div class="result" id="speechResult">अभी जाँच नहीं हुई।</div>
+</div>
+<div class="panel">
+<b>Browser details</b>
+<div class="result" id="details"></div>
+</div>
+<p class="small">SIMARAN diagnostic page · कोई API key नहीं चाहिए।</p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const micOut=$('micResult'),speechOut=$('speechResult');
+$('details').textContent=
+ 'Secure context: '+(window.isSecureContext?'Yes':'No')+
+ '\ngetUserMedia: '+(!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))+
+ '\nSpeechRecognition: '+(!!(window.SpeechRecognition||window.webkitSpeechRecognition))+
+ '\nUser agent: '+navigator.userAgent;
+$('micTest').onclick=async()=>{
+ micOut.textContent='माइक्रोफोन अनुमति माँगी जा रही है…';
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){micOut.textContent='FAIL: getUserMedia उपलब्ध नहीं है। HTTPS/Browser जाँचें।';return}
+ let stream;
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  const tracks=stream.getAudioTracks();
+  micOut.textContent='PASS: Browser को माइक्रोफोन मिला।\nTrack: '+(tracks[0]?.label||'Audio input')+'\nState: '+(tracks[0]?.readyState||'unknown')+'\nअब Stop करके stream बंद की जा रही है।';
+ }catch(e){micOut.textContent='FAIL: '+e.name+'\n'+e.message}
+ finally{if(stream)stream.getTracks().forEach(t=>t.stop())}
+};
+let rec=null,timer=null;
+function log(s){speechOut.textContent+=s+'\n'}
+function stopRec(){if(timer){clearTimeout(timer);timer=null}if(rec){try{rec.abort()}catch(e){}rec=null}}
+$('stop').onclick=()=>{stopRec();log('Stopped by user.')}
+$('speechTest').onclick=()=>{
+ stopRec();speechOut.textContent='';
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){log('FAIL: SpeechRecognition API उपलब्ध नहीं है।');return}
+ try{
+  rec=new SR();rec.lang=$('lang').value;rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+  rec.onstart=()=>{log('EVENT: start — recognizer started');timer=setTimeout(()=>{log('TIMEOUT: 12 seconds में result/end नहीं आया; abort किया।');stopRec()},12000)};
+  rec.onaudiostart=()=>log('EVENT: audiostart — browser audio capture शुरू');
+  rec.onsoundstart=()=>log('EVENT: soundstart — sound detected');
+  rec.onspeechstart=()=>log('EVENT: speechstart — speech detected');
+  rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)log((e.results[i].isFinal?'FINAL: ':'INTERIM: ')+e.results[i][0].transcript)};
+  rec.onspeechend=()=>log('EVENT: speechend');
+  rec.onsoundend=()=>log('EVENT: soundend');
+  rec.onaudioend=()=>log('EVENT: audioend');
+  rec.onnomatch=()=>log('EVENT: nomatch — speech समझ नहीं आया');
+  rec.onerror=e=>log('ERROR: '+e.error+(e.message?' — '+e.message:''));
+  rec.onend=()=>{if(timer){clearTimeout(timer);timer=null}log('EVENT: end — recognition बंद हुआ');rec=null};
+  log('Starting… अब 3–5 सेकंड बोलें।');
+  rec.start();
+ }catch(e){log('START ERROR: '+e.name+' — '+e.message)}
+};
+</script></body></html>
