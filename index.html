@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090b1b">
+<title>SIMARAN AI</title>
+<style>
+:root{color-scheme:dark;--muted:#aab0ce}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,"Noto Sans Devanagari",sans-serif;color:#f7f7ff;background:radial-gradient(ellipse at 50% 35%,#24204e 0%,#101329 38%,#080a18 78%);display:flex;justify-content:center}
+.app{width:min(100%,520px);min-height:100vh;padding:22px 20px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center}
+.top{width:100%;display:flex;justify-content:space-between;align-items:center}
+.brand{font-size:14px;letter-spacing:3px;font-weight:700;color:#e8e4ff}
+.status{font-size:12px;color:#c4c1e8;border:1px solid #ffffff20;padding:7px 10px;border-radius:20px}
+h1{font-size:30px;letter-spacing:2px;margin:42px 0 4px;font-weight:650}
+.sub{color:var(--muted);font-size:13px;letter-spacing:1.6px;text-align:center}
+.orb-wrap{height:280px;display:grid;place-items:center;width:100%;margin:18px 0 4px}
+.orb{width:205px;height:205px;border-radius:50%;position:relative;background:radial-gradient(circle at 35% 28%,#e6dfff 0%,#9e8aff 12%,#6559e9 32%,#292d89 57%,#101a46 75%,#080d22 100%);box-shadow:0 0 24px #9d7cffaa,0 0 65px #6c69ff70,inset -15px -18px 32px #05091d;animation:float 4s ease-in-out infinite}
+.orb:before,.orb:after{content:"";position:absolute;inset:-15px;border-radius:50%;border:1px solid #a99aff66;box-shadow:0 0 22px #8172ff55}
+.orb:after{inset:-27px;border-color:#67dfff30;transform:scaleY(.42);animation:ring 5s linear infinite}
+.orb.listening{animation:pulse 1.2s ease-in-out infinite;box-shadow:0 0 38px #67dfff,0 0 95px #7c70ff}
+@keyframes float{50%{transform:translateY(-8px)}}@keyframes ring{to{transform:rotate(360deg) scaleY(.42)}}@keyframes pulse{50%{transform:scale(1.07)}}
+.state{min-height:24px;color:#c9c7ed;font-size:14px;text-align:center}
+.reply{width:100%;min-height:74px;text-align:center;color:#f2f1ff;font-size:15px;line-height:1.6;padding:10px 8px}
+.controls{display:flex;gap:12px;margin:12px 0 18px}
+button{border:0;color:white;font:inherit;cursor:pointer}
+.mic{width:68px;height:68px;border-radius:50%;background:linear-gradient(145deg,#a58aff,#6057d9);box-shadow:0 8px 28px #7869ff66;font-size:25px}
+.small{border:1px solid #ffffff26;background:#ffffff0d;border-radius:18px;padding:12px 16px;font-size:13px}
+.entry{display:flex;gap:8px;width:100%;margin-top:auto}
+input{flex:1;min-width:0;background:#ffffff0d;border:1px solid #ffffff25;border-radius:16px;padding:14px;color:white;font-size:14px;outline:none}
+.send{background:#7567e9;border-radius:16px;padding:0 18px;font-weight:600}
+.note{margin-top:12px;width:100%;padding:12px;border:1px solid #ffffff18;border-radius:14px;background:#ffffff08;color:#b9bfdc;font-size:12px;line-height:1.6}
+.bottom{color:#858baa;font-size:11px;text-align:center;margin-top:14px;line-height:1.5}
+</style>
+</head>
+<body>
+<main class="app">
+ <div class="top"><div class="brand">✦ SIMARAN</div><div class="status" id="status">● READY</div></div>
+ <h1>SIMARAN AI</h1><div class="sub">YOUR PERSONAL VOICE ASSISTANT</div>
+ <div class="orb-wrap"><div class="orb" id="orb"></div></div>
+ <div class="state" id="state">माइक्रोफोन दबाकर बोलें</div>
+ <div class="reply" id="reply">नमस्ते! मैं SIMARAN हूँ।<br>आपकी सहायता के लिए तैयार हूँ।</div>
+ <div class="controls"><button class="mic" id="mic" aria-label="Start voice input">🎙</button><button class="small" id="stop">Stop voice</button></div>
+ <div class="entry"><input id="message" placeholder="हिंदी या English में लिखें…" autocomplete="off"><button class="send" id="send">Send</button></div>
+ <div class="note">Try: “What time is it?”, “आज की तारीख बताओ”, “Open YouTube”, “Open Google”, or “Search JEE Physics”.</div>
+ <div class="bottom">SIMARAN AI · Version 1.0 · Free starter prototype<br>Voice recognition availability depends on your browser and device.</div>
+</main>
+<script>
+const $=id=>document.getElementById(id),orb=$('orb'),state=$('state'),reply=$('reply'),status=$('status');
+let recognition=null,listening=false;
+function speak(text){
+ if(!('speechSynthesis'in window)){state.textContent='इस ब्राउज़र में बोलकर जवाब उपलब्ध नहीं है।';return;}
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);
+ u.lang=/[\u0900-\u097F]/.test(text)?'hi-IN':'en-IN';u.rate=.94;u.pitch=1.12;
+ const voices=speechSynthesis.getVoices(),lang=u.lang.slice(0,2),matching=voices.filter(v=>v.lang.toLowerCase().startsWith(lang));
+ const female=matching.find(v=>/female|woman|heera|priya|neerja|kalpana|lekha/i.test(v.name));
+ if(female)u.voice=female;else if(matching.length)u.voice=matching[0];
+ u.onstart=()=>{state.textContent='SIMARAN बोल रही है…';status.textContent='● SPEAKING';};
+ u.onend=()=>{state.textContent='माइक्रोफोन दबाकर बोलें';status.textContent='● READY';};
+ speechSynthesis.speak(u);
+}
+function say(t){reply.textContent=t;speak(t)}
+function handle(text){
+ const q=text.trim().toLowerCase();if(!q)return;
+ $('message').value='';
+ if(q.includes('time')||q.includes('समय')||q.includes('टाइम'))say('अभी समय है '+new Date().toLocaleTimeString('hi-IN',{hour:'numeric',minute:'2-digit'})+'।');
+ else if(q.includes('date')||q.includes('तारीख')||q.includes('दिन बताओ'))say('आज '+new Date().toLocaleDateString('hi-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' है।');
+ else if(q.includes('hello')||q.includes('hi')||q.includes('नमस्ते')||q.includes('हेलो'))say('नमस्ते! मैं SIMARAN हूँ। बताइए, मैं आपकी क्या सहायता कर सकती हूँ?');
+ else if(q.includes('open youtube')||q.includes('यूट्यूब खोलो')){say('YouTube खोल रही हूँ।');window.open('https://www.youtube.com','_blank');}
+ else if(q.includes('open google')||q.includes('गूगल खोलो')){say('Google खोल रही हूँ।');window.open('https://www.google.com','_blank');}
+ else if(q.startsWith('search ')||q.startsWith('खोजो ')||q.startsWith('सर्च ')){const term=text.replace(/^(search|खोजो|सर्च)\s*/i,'');say('मैं इंटरनेट पर खोज रही हूँ।');window.open('https://www.google.com/search?q='+encodeURIComponent(term),'_blank');}
+ else say('मैंने आपकी बात सुनी। इस पहले Version में समय, तारीख, Google और YouTube जैसे कमांड उपलब्ध हैं। असली AI बातचीत अगले Version में जोड़ी जाएगी।');
+}
+function startListening(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){say('इस ब्राउज़र में Voice Recognition उपलब्ध नहीं है। कृपया Android Chrome में HTTPS लिंक से खोलें।');return;}
+ if(listening){recognition.stop();return;}
+ recognition=new SR();recognition.lang='hi-IN';recognition.interimResults=false;recognition.maxAlternatives=1;
+ recognition.onstart=()=>{listening=true;orb.classList.add('listening');state.textContent='सुन रही हूँ… बोलिए';status.textContent='● LISTENING';};
+ recognition.onresult=e=>{const t=e.results[0][0].transcript;reply.textContent='You: '+t;handle(t);};
+ recognition.onerror=e=>{state.textContent='Voice error: '+e.error+' — आप text भी लिख सकते हैं।';};
+ recognition.onend=()=>{listening=false;orb.classList.remove('listening');status.textContent='● READY';};
+ try{recognition.start()}catch(e){state.textContent='Voice शुरू नहीं हो सकी। दोबारा प्रयास करें।';}
+}
+$('mic').addEventListener('click',startListening);
+$('stop').addEventListener('click',()=>{if(recognition&&listening)recognition.stop();if('speechSynthesis'in window)speechSynthesis.cancel();state.textContent='रोक दिया गया';status.textContent='● READY';});
+$('send').addEventListener('click',()=>handle($('message').value));
+$('message').addEventListener('keydown',e=>{if(e.key==='Enter')handle($('message').value)});
+if('speechSynthesis'in window)speechSynthesis.onvoiceschanged=()=>{};
+</script>
+</body>
+</html>
